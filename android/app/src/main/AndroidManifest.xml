@@ -1,0 +1,43 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        package="com.example.daily_verse">
+
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <application
+            android:label="daily_verse"
+            android:icon="@mipmap/ic_launcher">
+
+        <activity
+                android:name=".MainActivity"
+                android:exported="true"
+                android:launchMode="singleTop"
+                android:theme="@style/LaunchTheme"
+                android:configChanges="orientation|screenSize|smallestScreenSize"
+                android:hardwareAccelerated="true"
+                android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Add this meta-data to handle the new embedding -->
+        <meta-data
+                android:name="flutterEmbedding"
+                android:value="2"/>
+
+        <receiver
+                android:name="com.dexterous.flutterlocalnotifications.receivers.ActionBroadcastReceiver"
+                android:exported="true"/>
+
+        <receiver
+                android:name="com.dexterous.flutterlocalnotifications.receivers.DismissedReceiver"
+                android:exported="true"/>
+
+        <receiver
+                android:name="com.dexterous.flutterlocalnotifications.receivers.NotificationReceiver"
+                android:exported="true"/>
+
+    </application>
+
+</manifest>
