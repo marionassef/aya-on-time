@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:daily_verse/services/NotificationManager.dart'; // Import the NotificationManager
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -8,10 +9,12 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   TimeOfDay selectedTime = TimeOfDay(hour: 8, minute: 0); // Default time
+  late NotificationManager _notificationManager;
 
   @override
   void initState() {
     super.initState();
+    _notificationManager = NotificationManager();
     _loadSavedTime();
   }
 
@@ -38,6 +41,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       prefs.setInt('notification_hour', picked.hour);
       prefs.setInt('notification_minute', picked.minute);
       debugPrint('Selected time: $picked');
+
+      // Schedule notification with the new time
+      await _notificationManager.scheduleNotification(picked);
     }
   }
 

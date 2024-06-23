@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 class NotificationManager {
@@ -53,8 +52,7 @@ class NotificationManager {
       priority: Priority.high,
     );
 
-    const NotificationDetails platformDetails =
-    NotificationDetails(android: androidDetails);
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
     await flutterLocalNotificationsPlugin.show(
       0, // Notification ID
@@ -67,11 +65,11 @@ class NotificationManager {
 
   Future<void> scheduleNotification(TimeOfDay notificationTime) async {
     final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
-    final tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, notificationTime.hour, notificationTime.minute);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, notificationTime.hour, notificationTime.minute);
 
     if (scheduledDate.isBefore(now)) {
       debugPrint('Scheduled time is before current time, adding one day to schedule time.');
-      scheduledDate.add(Duration(days: 1));
+      scheduledDate = scheduledDate.add(Duration(days: 1));
     }
 
     debugPrint('Current time: $now');

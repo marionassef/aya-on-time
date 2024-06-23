@@ -4,10 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
-    <application
-            android:label="daily_verse"
-            android:icon="@mipmap/ic_launcher">
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
+    <application
+            android:label="Aya On Time"
+            android:icon="@mipmap/ic_launcher"
+            android:enableOnBackInvokedCallback="true">
         <activity
                 android:name=".MainActivity"
                 android:exported="true"

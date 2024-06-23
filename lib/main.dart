@@ -1,18 +1,22 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:daily_verse/services/DatabaseHelper.dart';
 import 'package:daily_verse/services/NotificationManager.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'dart:io'; // Add this
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:path_provider/path_provider.dart'; // Add this
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter/rendering.dart';
 import 'screens/SettingsScreen.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
-import 'package:flutter/services.dart'; // Add this
+import 'package:flutter/services.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -23,6 +27,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   tz.initializeTimeZones();
+  tz.setLocalLocation(tz.getLocation('Africa/Cairo')); // Set to Cairo, Egypt
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await DatabaseHelper.initDB();
 
@@ -35,7 +40,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Daily Verse App',
+      title: 'Aya On Time',
       theme: ThemeData(
         primarySwatch: Colors.blueGrey,
         textTheme: TextTheme(
@@ -45,7 +50,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const MyHomePage(title: 'Verse of the Day'),
+      home: const MyHomePage(title: 'Aya On Time'),
       routes: {
         '/settings': (context) => SettingsScreen(),
       },
@@ -119,15 +124,23 @@ class _MyHomePageState extends State<MyHomePage> {
   TimeOfDay notificationTime = TimeOfDay(hour: 8, minute: 0); // Default time
   late NotificationManager _notificationManager;
   FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final GlobalKey _globalKey = GlobalKey(); // Key for RepaintBoundary
 
   @override
   void initState() {
     super.initState();
     _backgroundImage = _getRandomBackgroundImage();
     _notificationManager = NotificationManager();
+    _checkPermissions();
     _loadNotificationTime();
     loadVerse();
     _setupFirebaseMessaging();
+  }
+
+  Future<void> _checkPermissions() async {
+    if (await Permission.scheduleExactAlarm.isDenied) {
+      await Permission.scheduleExactAlarm.request();
+    }
   }
 
   Future<void> _setupFirebaseMessaging() async {
@@ -161,13 +174,18 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<void> _loadNotificationTime() async {
     final prefs = await SharedPreferences.getInstance();
-    final hour = prefs.getInt('notification_hour') ?? 8;
-    final minute = prefs.getInt('notification_minute') ?? 0;
-    setState(() {
-      notificationTime = TimeOfDay(hour: hour, minute: minute);
-    });
-    debugPrint('Notification time loaded: $notificationTime');
-    await _notificationManager.scheduleNotification(notificationTime);
+    final hour = prefs.getInt('notification_hour');
+    final minute = prefs.getInt('notification_minute');
+
+    if (hour != null && minute != null) {
+      setState(() {
+        notificationTime = TimeOfDay(hour: hour, minute: minute);
+      });
+      debugPrint('Notification time loaded: $notificationTime');
+      await _notificationManager.scheduleNotification(notificationTime);
+    } else {
+      debugPrint('Notification time not set.');
+    }
   }
 
   String _getRandomBackgroundImage() {
@@ -206,16 +224,19 @@ class _MyHomePageState extends State<MyHomePage> {
     try {
       final RenderBox box = context.findRenderObject() as RenderBox;
 
-      // Load image from assets and copy to a temporary directory
-      final ByteData bytes = await rootBundle.load(_backgroundImage);
-      final Uint8List list = bytes.buffer.asUint8List();
+      // Create the image with verse text
+      RenderRepaintBoundary boundary = _globalKey.currentContext!.findRenderObject() as RenderRepaintBoundary;
+      var image = await boundary.toImage();
+      ByteData? byteData = await image.toByteData(format: ImageByteFormat.png);
+      Uint8List pngBytes = byteData!.buffer.asUint8List();
+
       final tempDir = await getTemporaryDirectory();
-      final file = await File('${tempDir.path}/image.png').create();
-      file.writeAsBytesSync(list);
+      final file = await File('${tempDir.path}/shared_image.png').create();
+      file.writeAsBytesSync(pngBytes);
 
       await Share.shareFiles(
         [file.path],
-        text: verseOfTheDay,
+        text: '',
         sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
       );
     } catch (e) {
@@ -223,16 +244,12 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  Future<void> _testImmediateNotification() async {
-    await _notificationManager.showNotification('Test Title', 'Test Body');
-  }
-
   @override
   Widget build(BuildContext context) {
     print(verseOfTheDay);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Verse of the Day'),
+        title: Text('Aya On Time'),
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
@@ -246,31 +263,30 @@ class _MyHomePageState extends State<MyHomePage> {
             icon: Icon(Icons.share),
             onPressed: _shareVerse,
           ),
-          IconButton(
-            icon: Icon(Icons.notification_important),
-            onPressed: _testImmediateNotification,
-          ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage(_backgroundImage),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                verseOfTheDay,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white),
-                textAlign: TextAlign.center,
-              ),
+      body: RepaintBoundary( // Add RepaintBoundary here
+        key: _globalKey,
+        child: Container(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(_backgroundImage),
+              fit: BoxFit.cover,
             ),
-          ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  verseOfTheDay,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
