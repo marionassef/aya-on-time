@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/timezone.dart' as tz;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 class NotificationManager {
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -21,10 +22,29 @@ class NotificationManager {
         debugPrint('Notification clicked with payload: ${response.payload}');
       },
     );
+
+    // Set up FCM listeners
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      RemoteNotification? notification = message.notification;
+      AndroidNotification? android = message.notification?.android;
+      if (notification != null && android != null) {
+        debugPrint('Received foreground message: ${notification.title} - ${notification.body}');
+        showNotification(notification.title, notification.body);
+      }
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('Message clicked with data: ${message.data}');
+      RemoteNotification? notification = message.notification;
+      if (notification != null) {
+        debugPrint('Message clicked with title: ${notification.title}');
+      }
+    });
+
     debugPrint('Notifications initialized');
   }
 
-  Future<void> showDailyVerseNotification(String title, String body) async {
+  Future<void> showNotification(String? title, String? body) async {
     const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'verse_channel', // Channel ID
       'Daily Verse', // Channel Name
@@ -45,46 +65,36 @@ class NotificationManager {
     debugPrint('Notification shown: $title - $body');
   }
 
-  Future<void> scheduleDailyNotification(TimeOfDay notificationTime, String title, String body) async {
-    final now = tz.TZDateTime.now(tz.local);
-    debugPrint('Current date and time: $now');
-
-    var scheduledDate = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      notificationTime.hour,
-      notificationTime.minute,
-    );
+  Future<void> scheduleNotification(TimeOfDay notificationTime) async {
+    final tz.TZDateTime now = tz.TZDateTime.now(tz.local);
+    final tz.TZDateTime scheduledDate = tz.TZDateTime(tz.local, now.year, now.month, now.day, notificationTime.hour, notificationTime.minute);
 
     if (scheduledDate.isBefore(now)) {
-      // If the scheduled time is before now, schedule for the next day
-      scheduledDate = scheduledDate.add(const Duration(days: 1));
+      debugPrint('Scheduled time is before current time, adding one day to schedule time.');
+      scheduledDate.add(Duration(days: 1));
     }
 
-    debugPrint('Scheduling notification: $title at $scheduledDate');
+    debugPrint('Current time: $now');
+    debugPrint('Scheduled notification time: $scheduledDate');
+
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0,
-      title,
-      body,
+      'Scheduled Notification',
+      '',
       scheduledDate,
-      NotificationDetails(android: AndroidNotificationDetails(
-        'daily_verse_channel',
-        'Daily Verse',
-        channelDescription: 'Channel for daily verse notifications',
-        importance: Importance.max,
-        priority: Priority.high,
-        showWhen: false,
-      )),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'verse_channel', // Channel ID
+          'Daily Verse', // Channel Name
+          channelDescription: 'Daily notification with a verse',
+          importance: Importance.high,
+          priority: Priority.high,
+        ),
+      ),
       androidAllowWhileIdle: true,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.wallClockTime,
     );
-    debugPrint('Notification scheduled for $scheduledDate');
-  }
-
-  Future<void> testImmediateNotification() async {
-    await showDailyVerseNotification('Test Title', 'Test Body');
+    debugPrint('Notification scheduled for: $scheduledDate');
   }
 }

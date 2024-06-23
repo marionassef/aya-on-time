@@ -2,33 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:daily_verse/services/DatabaseHelper.dart';
 import 'package:daily_verse/services/NotificationManager.dart';
 import 'package:intl/intl.dart';
-import 'package:share/share.dart';
 import 'dart:math';
+import 'dart:io'; // Add this
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart'; // Add this
 import 'screens/SettingsScreen.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter/services.dart'; // Add this
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-FlutterLocalNotificationsPlugin();
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+  debugPrint("Handling a background message: ${message.messageId}");
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DatabaseHelper.initDB();
-  await NotificationManager().initNotifications();
+  await Firebase.initializeApp();
   tz.initializeTimeZones();
-  const AndroidInitializationSettings initializationSettingsAndroid =
-  AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings initializationSettings =
-  InitializationSettings(android: initializationSettingsAndroid);
-  await flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse response) async {
-      if (response.payload != null) {
-        debugPrint('notification payload: ${response.payload}');
-      }
-    },
-  );
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  await DatabaseHelper.initDB();
+
   runApp(const MyApp());
 }
 
@@ -121,6 +118,7 @@ class _MyHomePageState extends State<MyHomePage> {
   late String _backgroundImage;
   TimeOfDay notificationTime = TimeOfDay(hour: 8, minute: 0); // Default time
   late NotificationManager _notificationManager;
+  FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
 
   @override
   void initState() {
@@ -129,6 +127,36 @@ class _MyHomePageState extends State<MyHomePage> {
     _notificationManager = NotificationManager();
     _loadNotificationTime();
     loadVerse();
+    _setupFirebaseMessaging();
+  }
+
+  Future<void> _setupFirebaseMessaging() async {
+    NotificationSettings settings = await _firebaseMessaging.requestPermission(
+      alert: true,
+      announcement: false,
+      badge: true,
+      carPlay: false,
+      criticalAlert: false,
+      provisional: false,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      debugPrint('User granted permission');
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('Got a message whilst in the foreground!');
+        debugPrint('Message data: ${message.data}');
+
+        if (message.notification != null) {
+          debugPrint('Message also contained a notification: ${message.notification}');
+          _notificationManager.showNotification(message.notification!.title, message.notification!.body);
+        }
+      });
+    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
+      debugPrint('User granted provisional permission');
+    } else {
+      debugPrint('User declined or has not accepted permission');
+    }
   }
 
   Future<void> _loadNotificationTime() async {
@@ -139,7 +167,7 @@ class _MyHomePageState extends State<MyHomePage> {
       notificationTime = TimeOfDay(hour: hour, minute: minute);
     });
     debugPrint('Notification time loaded: $notificationTime');
-    _scheduleDailyNotification();
+    await _notificationManager.scheduleNotification(notificationTime);
   }
 
   String _getRandomBackgroundImage() {
@@ -174,20 +202,29 @@ class _MyHomePageState extends State<MyHomePage> {
     debugPrint('Verse of the day loaded: $verseOfTheDay');
   }
 
-  Future<void> _scheduleDailyNotification() async {
-    await _notificationManager.scheduleDailyNotification(
-      notificationTime,
-      'Verse of the Day',
-      verseOfTheDay,
-    );
+  Future<void> _shareVerse() async {
+    try {
+      final RenderBox box = context.findRenderObject() as RenderBox;
+
+      // Load image from assets and copy to a temporary directory
+      final ByteData bytes = await rootBundle.load(_backgroundImage);
+      final Uint8List list = bytes.buffer.asUint8List();
+      final tempDir = await getTemporaryDirectory();
+      final file = await File('${tempDir.path}/image.png').create();
+      file.writeAsBytesSync(list);
+
+      await Share.shareFiles(
+        [file.path],
+        text: verseOfTheDay,
+        sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+      );
+    } catch (e) {
+      debugPrint('Error sharing verse: $e');
+    }
   }
 
-  Future<void> _shareVerse() async {
-    final RenderBox box = context.findRenderObject() as RenderBox;
-    await Share.share(
-      verseOfTheDay,
-      sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-    );
+  Future<void> _testImmediateNotification() async {
+    await _notificationManager.showNotification('Test Title', 'Test Body');
   }
 
   @override
@@ -199,13 +236,19 @@ class _MyHomePageState extends State<MyHomePage> {
         actions: [
           IconButton(
             icon: Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
+            onPressed: () async {
+              await Navigator.pushNamed(context, '/settings');
+              // Reload notification time after returning from settings
+              _loadNotificationTime();
             },
           ),
           IconButton(
             icon: Icon(Icons.share),
             onPressed: _shareVerse,
+          ),
+          IconButton(
+            icon: Icon(Icons.notification_important),
+            onPressed: _testImmediateNotification,
           ),
         ],
       ),

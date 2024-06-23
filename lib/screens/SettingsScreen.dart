@@ -22,6 +22,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       selectedTime = TimeOfDay(hour: hour, minute: minute);
     });
+    debugPrint('Loaded saved time: $selectedTime');
   }
 
   Future<void> _selectTime(BuildContext context) async {
@@ -36,6 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       prefs.setInt('notification_hour', picked.hour);
       prefs.setInt('notification_minute', picked.minute);
+      debugPrint('Selected time: $picked');
     }
   }
 

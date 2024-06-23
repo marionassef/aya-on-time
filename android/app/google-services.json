@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "409718254006",
+    "project_id": "aya-on-time",
+    "storage_bucket": "aya-on-time.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:409718254006:android:e3a76b71329ee1db003917",
+        "android_client_info": {
+          "package_name": "com.example.daily_verse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBMnCCP2MBnm5plCuHscj1ozizWO1vKBnU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
