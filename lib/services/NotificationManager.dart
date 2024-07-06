@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 class NotificationManager {
@@ -9,7 +8,7 @@ class NotificationManager {
 
   Future<void> initNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+    AndroidInitializationSettings('app_icon');
 
     final InitializationSettings settings = InitializationSettings(
       android: initializationSettingsAndroid,
@@ -22,23 +21,23 @@ class NotificationManager {
       },
     );
 
-    // Set up FCM listeners
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      RemoteNotification? notification = message.notification;
-      AndroidNotification? android = message.notification?.android;
-      if (notification != null && android != null) {
-        debugPrint('Received foreground message: ${notification.title} - ${notification.body}');
-        showNotification(notification.title, notification.body);
-      }
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('Message clicked with data: ${message.data}');
-      RemoteNotification? notification = message.notification;
-      if (notification != null) {
-        debugPrint('Message clicked with title: ${notification.title}');
-      }
-    });
+    // // Set up FCM listeners
+    // FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    //   RemoteNotification? notification = message.notification;
+    //   AndroidNotification? android = message.notification?.android;
+    //   if (notification != null && android != null) {
+    //     debugPrint('Received foreground message: ${notification.title} - ${notification.body}');
+    //     showNotification(notification.title, notification.body);
+    //   }
+    // });
+    //
+    // FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    //   debugPrint('Message clicked with data: ${message.data}');
+    //   RemoteNotification? notification = message.notification;
+    //   if (notification != null) {
+    //     debugPrint('Message clicked with title: ${notification.title}');
+    //   }
+    // });
 
     debugPrint('Notifications initialized');
   }
@@ -48,8 +47,9 @@ class NotificationManager {
       'verse_channel', // Channel ID
       'Daily Verse', // Channel Name
       channelDescription: 'Daily notification with a verse',
-      importance: Importance.high,
+      importance: Importance.max,
       priority: Priority.high,
+      icon: '@mipmap/ic_launcher',
     );
 
     const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
@@ -85,8 +85,9 @@ class NotificationManager {
           'verse_channel', // Channel ID
           'Daily Verse', // Channel Name
           channelDescription: 'Daily notification with a verse',
-          importance: Importance.high,
+          importance: Importance.max,
           priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
         ),
       ),
       androidAllowWhileIdle: true,

@@ -7,8 +7,6 @@ import 'package:intl/intl.dart';
 import 'dart:math';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -18,17 +16,10 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter/services.dart';
 
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-  debugPrint("Handling a background message: ${message.messageId}");
-}
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   tz.initializeTimeZones();
   tz.setLocalLocation(tz.getLocation('Africa/Cairo')); // Set to Cairo, Egypt
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await DatabaseHelper.initDB();
 
   runApp(const MyApp());
@@ -123,7 +114,6 @@ class _MyHomePageState extends State<MyHomePage> {
   late String _backgroundImage;
   TimeOfDay notificationTime = TimeOfDay(hour: 8, minute: 0); // Default time
   late NotificationManager _notificationManager;
-  FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   final GlobalKey _globalKey = GlobalKey(); // Key for RepaintBoundary
 
   @override
@@ -134,41 +124,11 @@ class _MyHomePageState extends State<MyHomePage> {
     _checkPermissions();
     _loadNotificationTime();
     loadVerse();
-    _setupFirebaseMessaging();
   }
 
   Future<void> _checkPermissions() async {
     if (await Permission.scheduleExactAlarm.isDenied) {
       await Permission.scheduleExactAlarm.request();
-    }
-  }
-
-  Future<void> _setupFirebaseMessaging() async {
-    NotificationSettings settings = await _firebaseMessaging.requestPermission(
-      alert: true,
-      announcement: false,
-      badge: true,
-      carPlay: false,
-      criticalAlert: false,
-      provisional: false,
-      sound: true,
-    );
-
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('User granted permission');
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('Got a message whilst in the foreground!');
-        debugPrint('Message data: ${message.data}');
-
-        if (message.notification != null) {
-          debugPrint('Message also contained a notification: ${message.notification}');
-          _notificationManager.showNotification(message.notification!.title, message.notification!.body);
-        }
-      });
-    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
-      debugPrint('User granted provisional permission');
-    } else {
-      debugPrint('User declined or has not accepted permission');
     }
   }
 

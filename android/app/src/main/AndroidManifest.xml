@@ -28,7 +28,15 @@
         <meta-data
                 android:name="flutterEmbedding"
                 android:value="2"/>
-
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>
+        <receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>
+        <receiver android:enabled="true" android:exported="false" android:permission="android.permission.RECEIVE_BOOT_COMPLETED"
+                android:name="notification">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+            </intent-filter>
+        </receiver>
         <receiver
                 android:name="com.dexterous.flutterlocalnotifications.receivers.ActionBroadcastReceiver"
                 android:exported="true"/>
